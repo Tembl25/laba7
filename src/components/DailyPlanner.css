@@ -1,0 +1,27 @@
+/* DailyPlanner.css */
+
+.daily-planner-container {
+    font-family: 'Arial', sans-serif;
+    max-width: 600px;
+    margin: 0 auto;
+    padding: 20px;
+    border: 1px solid #e0e0e0;
+    border-radius: 5px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.date {
+    font-size: 20px;
+    margin-bottom: 10px;
+    color: #333;
+}
+
+.event-list {
+    list-style-type: none;
+    padding-left: 0;
+}
+
+.event-item {
+    padding: 10px;
+    border-bottom: 1px solid #e0e0e0;
+}
