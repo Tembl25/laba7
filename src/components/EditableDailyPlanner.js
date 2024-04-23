@@ -1,31 +1,110 @@
 import React, { useState, useEffect } from 'react';
 
-const BicycleRow = () => {
-    const [showComponents, setShowComponents] = useState({
+// Flux
+const createStore = (reducer) => {
+    let state;
+    let listeners = [];
+
+    const getState = () => state;
+
+    const dispatch = (action) => {
+        state = reducer(state, action);
+        listeners.forEach(listener => listener());
+    };
+
+    const subscribe = (listener) => {
+        listeners.push(listener);
+        return () => {
+            listeners = listeners.filter(l => l !== listener);
+        };
+    };
+
+    dispatch({});
+
+    return { getState, dispatch, subscribe };
+};
+
+const TOGGLE_COMPONENT = 'TOGGLE_COMPONENT';
+const TOGGLE_ACTIVE = 'TOGGLE_ACTIVE';
+const ADD_BRAND = 'ADD_BRAND';
+
+const toggleComponent = (brand) => ({
+    type: TOGGLE_COMPONENT,
+    payload: brand
+});
+
+const toggleActive = (brand) => ({
+    type: TOGGLE_ACTIVE,
+    payload: brand
+});
+
+const addBrand = (newBrand) => ({
+    type: ADD_BRAND,
+    payload: newBrand
+});
+
+const initialState = {
+    showComponents: {
         Brand1: true,
         Brand2: true,
         Brand3: true,
-    });
+    },
+    brands: JSON.parse(localStorage.getItem('bicycleBrands')) || [
+        { brand: "Brand1", model: "Model1", type: "Type1", wheelDiameter: "26 inches", brakeType: "Disc brakes", active: true },
+        { brand: "Brand2", model: "Model2", type: "Type2", wheelDiameter: "28 inches", brakeType: "V-brakes", active: true },
+        { brand: "Brand3", model: "Model3", type: "Type3", wheelDiameter: "24 inches", brakeType: "Hydraulic brakes", active: true }
+    ]
+};
 
-    const [brands, setBrands] = useState(() => {
-        const storedBrands = localStorage.getItem('bicycleBrands');
-        return storedBrands ? JSON.parse(storedBrands) : [
-            { brand: "Brand1", model: "Model1", type: "Type1", wheelDiameter: "26 inches", brakeType: "Disc brakes", active: true },
-            { brand: "Brand2", model: "Model2", type: "Type2", wheelDiameter: "28 inches", brakeType: "V-brakes", active: true },
-            { brand: "Brand3", model: "Model3", type: "Type3", wheelDiameter: "24 inches", brakeType: "Hydraulic brakes", active: true }
-        ];
-    });
+// reducer
+const reducer = (state = initialState, action) => {
+    switch (action.type) {
+        case TOGGLE_COMPONENT:
+            const updatedShowComponents = {
+                ...state.showComponents,
+                [action.payload]: !state.showComponents[action.payload]
+            };
+            localStorage.setItem('showComponents', JSON.stringify(updatedShowComponents));
+            return {
+                ...state,
+                showComponents: updatedShowComponents
+            };
+        case TOGGLE_ACTIVE:
+            const updatedBrands = state.brands.map(item =>
+                item.brand === action.payload ? { ...item, active: !item.active } : item
+            );
+            localStorage.setItem('bicycleBrands', JSON.stringify(updatedBrands));
+            return {
+                ...state,
+                brands: updatedBrands
+            };
+        case ADD_BRAND:
+            const newBrands = [...state.brands, action.payload];
+            localStorage.setItem('bicycleBrands', JSON.stringify(newBrands));
+            return {
+                ...state,
+                brands: newBrands
+            };
+        default:
+            return state;
+    }
+};
+
+const store = createStore(reducer);
+
+const BicycleRow = () => {
+    const [state, setState] = useState(store.getState());
 
     useEffect(() => {
-        localStorage.setItem('bicycleBrands', JSON.stringify(brands));
-    }, [brands]);
+        const unsubscribe = store.subscribe(() => {
+            setState(store.getState());
+        });
+        return () => {
+            unsubscribe();
+        };
+    }, []);
 
-    const toggleComponent = (brand) => {
-        setShowComponents(prevState => ({
-            ...prevState,
-            [brand]: !prevState[brand]
-        }));
-    };
+    const { showComponents, brands } = state;
 
     const getRandomColor = () => {
         const colors = ['#ff0000', '#00ff00', '#0000ff'];
@@ -40,12 +119,6 @@ const BicycleRow = () => {
         }
     };
 
-    const toggleActive = (brand) => {
-        setBrands(prevBrands => prevBrands.map(item =>
-            item.brand === brand ? { ...item, active: !item.active } : item
-        ));
-    };
-
     const handleAddFormSubmit = (event) => {
         event.preventDefault();
         const form = event.target;
@@ -57,8 +130,8 @@ const BicycleRow = () => {
             brakeType: form.brakeType.value,
             active: true
         };
-        setBrands(prevBrands => [...prevBrands, newBrand]);
-        toggleComponent(newBrand.brand);
+        store.dispatch(addBrand(newBrand));
+        store.dispatch(toggleComponent(newBrand.brand));
         form.reset();
     };
 
@@ -71,7 +144,7 @@ const BicycleRow = () => {
                         <p><strong>Тип:</strong> {type}</p>
                         <p><strong>Диаметр колёс:</strong> {wheelDiameter}</p>
                         <p><strong>Тип тормозов:</strong> {brakeType}</p>
-                        <button onClick={() => toggleActive(brand)}>{active ? 'Удалить' : 'Восстановить'}</button>
+                        <button onClick={() => store.dispatch(toggleActive(brand))}>{active ? 'Удалить' : 'Восстановить'}</button>
                     </div>
                 )
             ))}
@@ -90,7 +163,7 @@ const BicycleRow = () => {
                         <input
                             type="checkbox"
                             checked={showComponents[brand]}
-                            onChange={() => toggleComponent(brand)}
+                            onChange={() => store.dispatch(toggleComponent(brand))}
                         />
                         <label>{brand}</label>
                     </div>
